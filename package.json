@@ -1,0 +1,61 @@
+{
+  "name": "zoomio",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n client,server -c cyan,magenta \"vite\" \"ts-node server/index.ts\"",
+    "client": "vite",
+    "server": "ts-node server/index.ts",
+    "build:player": "vite build --config vite.player.config.ts",
+    "build": "tsc -b && node scripts/copy-ffmpeg.mjs && npm run build:player && vite build",
+    "start": "node --experimental-strip-types server/index.ts",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
+    "@ffmpeg/core": "^0.12.10",
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
+    "@prisma/client": "^7.9.0",
+    "canvas-confetti": "^1.9.3",
+    "concurrently": "^9.1.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.21.2",
+    "framer-motion": "^12.0.1",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.475.0",
+    "multer": "^1.4.5-lts.1",
+    "nanoid": "^6.0.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "three": "^0.185.1",
+    "ts-node": "^10.9.2",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/canvas-confetti": "^1.6.4",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.185.1",
+    "@vitejs/plugin-react": "^6.0.3",
+    "autoprefixer": "^10.4.20",
+    "oxlint": "^1.71.0",
+    "postcss": "^8.5.1",
+    "prisma": "^7.9.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1"
+  },
+  "engines": {
+    "node": ">=22.6"
+  }
+}

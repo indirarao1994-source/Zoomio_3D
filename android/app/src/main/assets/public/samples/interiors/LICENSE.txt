@@ -1,0 +1,17 @@
+Sample panoramas — Poly Haven (https://polyhaven.com)
+Licence: CC0 1.0 Universal (Public Domain Dedication)
+
+Free for any use, including commercial, with no attribution required.
+Kept here as realistic 2:1 equirectangular test imagery.
+
+  lounge.jpg         Lythwood Lounge  — Greg Zaal
+  bedroom.jpg        Lythwood Room    — Greg Zaal
+  wooden-lounge.jpg  Wooden Lounge
+
+NOTE: these are HDRI captures, not phone/360-camera output. They carry no XMP
+GPano metadata or GPS tags, so they CANNOT be used to test Google Street View
+publishing — that needs genuine camera files.
+
+Added for the 2BHK floor-plan demo tour:
+  kitchen.jpg        Kiara Interior            — Poly Haven, CC0
+  bedroom2.jpg       Relax Inn Seaview Suite   — Poly Haven, CC0

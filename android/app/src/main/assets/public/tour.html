@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zoomio – Gaming Virtual Tour</title>
+<style>
+/* ─── RESET & ROOT ─────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --cyan:#00d4ff;--orange:#ff6b35;--green:#00ff88;
+  --dark:#020817;--panel:rgba(2,8,23,.92);--border:rgba(0,212,255,.22);
+  --glow:0 0 18px rgba(0,212,255,.55);
+}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;
+  font-family:'Share Tech Mono',monospace}
+
+/* ─── CANVAS ────────────────────────────────────────────────── */
+#canvas{position:fixed;top:0;left:0;width:100%;height:100%;display:block;cursor:grab}
+#canvas.grabbing{cursor:grabbing}
+
+/* ─── LOADING SCREEN ────────────────────────────────────────── */
+#loading{position:fixed;inset:0;background:#020817;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;z-index:9999;
+  transition:opacity .5s}
+#loading.fade{opacity:0;pointer-events:none}
+.load-logo{font-size:52px;margin-bottom:16px;animation:pulse 2s infinite}
+.load-title{font-size:22px;font-weight:900;letter-spacing:4px;color:#fff;
+  margin-bottom:8px}
+.load-sub{font-size:12px;color:rgba(255,255,255,.4);letter-spacing:2px;
+  margin-bottom:32px}
+.load-bar{width:220px;height:3px;background:rgba(0,212,255,.15);
+  border-radius:2px;overflow:hidden}
+.load-fill{height:100%;background:linear-gradient(90deg,#00d4ff,#00ff88);
+  border-radius:2px;animation:fill 1.8s ease forwards}
+@keyframes fill{from{width:0}to{width:100%}}
+@keyframes pulse{0%,100%{filter:drop-shadow(0 0 8px #00d4ff)}
+  50%{filter:drop-shadow(0 0 24px #00d4ff)}}
+
+/* ─── AVATAR SCREEN ─────────────────────────────────────────── */
+#avatar-screen{position:fixed;inset:0;background:linear-gradient(
+  135deg,#020817 0%,#040f1a 50%,#020817 100%);
+  display:flex;align-items:center;justify-content:center;z-index:800}
+#avatar-screen.hidden{display:none}
+
+.splash{position:relative;width:min(600px,92vw);padding:40px 40px 32px;
+  background:rgba(2,8,23,.95);border:1px solid var(--border);
+  border-top:3px solid var(--cyan);border-radius:18px;
+  box-shadow:var(--glow),inset 0 1px 0 rgba(255,255,255,.04);
+  backdrop-filter:blur(20px)}
+
+/* grid bg */
+.splash::before{content:'';position:absolute;inset:0;border-radius:18px;
+  background-image:linear-gradient(rgba(0,212,255,.05) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(0,212,255,.05) 1px,transparent 1px);
+  background-size:32px 32px;pointer-events:none}
+
+.sp-logo{font-size:52px;text-align:center;margin-bottom:14px;line-height:1;
+  filter:drop-shadow(0 0 14px var(--cyan))}
+.sp-title{font-size:26px;font-weight:900;text-align:center;color:#fff;
+  letter-spacing:3px;margin-bottom:6px}
+.sp-sub{text-align:center;font-size:12px;color:rgba(255,255,255,.4);
+  letter-spacing:1px;margin-bottom:28px}
+.sp-label{font-size:10px;letter-spacing:3px;color:var(--cyan);
+  text-align:center;margin-bottom:14px;text-transform:uppercase}
+
+/* avatars */
+.avatar-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;
+  margin-bottom:26px}
+.av{background:rgba(0,212,255,.04);border:1px solid var(--border);
+  border-radius:12px;padding:14px 6px;text-align:center;cursor:pointer;
+  transition:.2s;position:relative}
+.av:hover,.av.sel{background:rgba(0,212,255,.12);border-color:var(--cyan);
+  box-shadow:var(--glow)}
+.av-icon{font-size:38px;line-height:1;margin-bottom:8px}
+.av-name{font-size:9px;font-weight:700;letter-spacing:2px;color:var(--cyan);
+  margin-bottom:3px}
+.av-role{font-size:9px;color:rgba(255,255,255,.35)}
+.sel-badge{position:absolute;top:6px;right:6px;width:8px;height:8px;
+  border-radius:50%;background:var(--green);
+  box-shadow:0 0 10px var(--green);display:none}
+.av.sel .sel-badge{display:block}
+
+/* controls hint */
+.ctrl-hint{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
+  margin-bottom:22px}
+.ctrl-pill{background:rgba(0,212,255,.08);border:1px solid var(--border);
+  border-radius:6px;padding:5px 12px;font-size:10px;color:rgba(255,255,255,.55);
+  letter-spacing:.5px}
+.ctrl-pill span{color:var(--cyan)}
+
+/* enter button */
+.enter-btn{width:100%;padding:16px;background:linear-gradient(
+  135deg,var(--cyan),#0099cc);border:none;border-radius:10px;
+  font-size:13px;font-weight:700;letter-spacing:3px;color:#000;
+  cursor:pointer;transition:.25s;box-shadow:var(--glow)}
+.enter-btn:hover{transform:translateY(-2px);
+  box-shadow:0 0 32px rgba(0,212,255,.7);
+  background:linear-gradient(135deg,#00ffff,var(--cyan))}
+
+/* ─── TRANSITION OVERLAY ─────────────────────────────────────── */
+#transition{position:fixed;inset:0;background:#000;opacity:0;
+  pointer-events:none;z-index:200;transition:opacity .35s}
+#transition.active{opacity:1;pointer-events:auto}
+
+/* ─── HUD ────────────────────────────────────────────────────── */
+#hud{position:fixed;inset:0;z-index:100;pointer-events:none;display:none}
+#hud.visible{display:block}
+
+/* scanlines */
+#hud::before{content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,
+  rgba(0,0,0,.07) 3px,rgba(0,0,0,.07) 4px);pointer-events:none}
+/* vignette */
+#hud::after{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at center,transparent 52%,
+  rgba(0,0,0,.72) 100%);pointer-events:none}
+
+/* top-left info panel */
+.hud-tl{position:absolute;top:20px;left:20px;display:flex;
+  flex-direction:column;gap:6px}
+.hud-brand{font-size:9px;letter-spacing:3px;color:var(--cyan);
+  text-shadow:0 0 8px var(--cyan);opacity:.75}
+.hud-room{background:var(--panel);border:1px solid var(--border);
+  border-left:3px solid var(--cyan);border-radius:0 8px 8px 0;
+  padding:8px 16px;display:flex;align-items:center;gap:8px;
+  max-width:280px;pointer-events:auto}
+.hud-room-icon{font-size:18px;flex-shrink:0}
+.hud-room-name{font-size:13px;font-weight:700;color:#fff;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud-room-sub{font-size:9px;color:rgba(255,255,255,.4);margin-top:2px;
+  letter-spacing:1px}
+
+/* top-right console */
+.hud-tr{position:absolute;top:20px;right:20px;
+  background:var(--panel);border:1px solid var(--border);
+  border-right:3px solid var(--cyan);border-radius:8px 0 0 8px;
+  padding:12px 18px;font-size:10px;color:var(--cyan);
+  line-height:2;letter-spacing:.8px;
+  text-shadow:0 0 6px var(--cyan);pointer-events:auto;
+  backdrop-filter:blur(12px)}
+.hud-tr-val{color:#fff}
+
+/* crosshair */
+.xhair{position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);width:36px;height:36px;
+  pointer-events:none}
+.xhair-h{position:absolute;top:50%;left:0;width:100%;height:1px;
+  background:rgba(0,212,255,.5);transform:translateY(-50%)}
+.xhair-v{position:absolute;left:50%;top:0;width:1px;height:100%;
+  background:rgba(0,212,255,.5);transform:translateX(-50%)}
+.xhair-dot{position:absolute;top:50%;left:50%;width:5px;height:5px;
+  border-radius:50%;background:var(--cyan);transform:translate(-50%,-50%);
+  box-shadow:0 0 10px var(--cyan)}
+.xhair-ring{position:absolute;top:50%;left:50%;width:18px;height:18px;
+  border:1px solid rgba(0,212,255,.4);border-radius:50%;
+  transform:translate(-50%,-50%)}
+
+/* avatar badge */
+.hud-avatar{position:absolute;top:50%;left:20px;transform:translateY(-50%);
+  background:var(--panel);border:1px solid var(--border);
+  border-left:3px solid var(--green);border-radius:0 10px 10px 0;
+  padding:10px 14px;pointer-events:auto;backdrop-filter:blur(12px)}
+.av-badge-icon{font-size:28px;text-align:center;margin-bottom:4px}
+.av-badge-name{font-size:8px;letter-spacing:2px;color:var(--green);
+  text-align:center}
+
+/* bottom bar */
+.hud-bot{position:absolute;bottom:0;left:0;right:0;
+  background:linear-gradient(transparent,rgba(2,8,23,.92));
+  padding:14px 24px 18px;display:flex;flex-direction:column;
+  align-items:center;gap:10px;pointer-events:auto}
+
+/* room dot navigator */
+.room-dots{display:flex;align-items:center;gap:8px}
+.rdot{width:9px;height:9px;border-radius:50%;
+  background:rgba(0,212,255,.18);border:1px solid var(--border);
+  cursor:pointer;transition:.2s}
+.rdot:hover{background:rgba(0,212,255,.45)}
+.rdot.cur{background:var(--cyan);box-shadow:0 0 12px var(--cyan);
+  transform:scale(1.35)}
+.rdot.vis{background:rgba(0,255,136,.55);
+  box-shadow:0 0 8px rgba(0,255,136,.4)}
+
+/* action buttons row */
+.hud-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.hbtn{font-size:9px;letter-spacing:1.5px;padding:7px 14px;
+  background:rgba(2,8,23,.8);border:1px solid var(--border);
+  border-radius:7px;color:rgba(255,255,255,.7);cursor:pointer;
+  transition:.2s;backdrop-filter:blur(8px);pointer-events:auto}
+.hbtn:hover{border-color:var(--cyan);color:var(--cyan);
+  box-shadow:var(--glow)}
+.hbtn.active{border-color:var(--orange);color:var(--orange)}
+
+/* ─── NAV ARROWS (2D overlay) ────────────────────────────────── */
+#nav-arrows{position:fixed;inset:0;z-index:150;pointer-events:none}
+
+.nav-arrow{position:absolute;pointer-events:auto;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  transition:.2s}
+.nav-arrow:hover .arr-body{color:#fff;text-shadow:0 0 30px var(--cyan);
+  transform:scale(1.2)}
+.nav-arrow:hover .arr-label{opacity:1}
+.arr-body{font-size:36px;color:var(--cyan);
+  text-shadow:0 0 18px var(--cyan);line-height:1;
+  animation:arr-float 1.6s ease-in-out infinite;transition:.2s}
+.arr-label{font-size:10px;letter-spacing:2px;color:var(--cyan);
+  text-shadow:0 0 8px var(--cyan);opacity:.7;font-weight:700;
+  transition:.2s}
+@keyframes arr-float{0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-8px)}}
+
+/* forward arrow – bottom center */
+#arr-forward{bottom:100px;left:50%;transform:translateX(-50%)}
+/* back arrow – near bottom center shifted slightly */
+#arr-back{bottom:100px;left:calc(50% - 70px);transform:translateX(-50%)}
+#arr-forward{left:calc(50% + 0px)}
+
+/* left/right room arrows on edges */
+#arr-left{top:50%;left:24px;transform:translateY(-50%);flex-direction:row}
+#arr-right{top:50%;right:24px;transform:translateY(-50%);flex-direction:row-reverse}
+#arr-left .arr-body,#arr-right .arr-body{font-size:30px}
+
+/* ─── ROOMS SIDE PANEL ───────────────────────────────────────── */
+#rooms-panel{position:fixed;left:0;top:0;bottom:0;width:260px;
+  background:rgba(2,8,23,.97);border-right:1px solid var(--border);
+  backdrop-filter:blur(20px);z-index:300;
+  transform:translateX(-100%);transition:.3s ease;
+  display:flex;flex-direction:column}
+#rooms-panel.open{transform:translateX(0)}
+.rp-head{padding:20px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center}
+.rp-head h3{font-size:11px;letter-spacing:3px;color:var(--cyan)}
+.rp-close{background:none;border:none;color:rgba(255,255,255,.4);
+  font-size:20px;cursor:pointer;pointer-events:auto}
+.rp-list{flex:1;overflow-y:auto;padding:8px}
+.rp-item{display:flex;gap:12px;align-items:center;
+  padding:10px 12px;border-radius:8px;cursor:pointer;
+  margin-bottom:4px;transition:.2s;pointer-events:auto}
+.rp-item:hover{background:rgba(0,212,255,.08)}
+.rp-item.cur{background:rgba(0,212,255,.14);
+  border-left:3px solid var(--cyan)}
+.rp-thumb{width:52px;height:38px;border-radius:6px;object-fit:cover;
+  border:1px solid var(--border);background:#111;flex-shrink:0}
+.rp-info-name{font-size:12px;font-weight:700;color:#fff;margin-bottom:3px}
+.rp-info-num{font-size:10px;color:rgba(255,255,255,.35);letter-spacing:1px}
+
+/* ─── MINIMAP ────────────────────────────────────────────────── */
+#minimap{position:fixed;right:20px;bottom:95px;
+  width:130px;height:130px;border-radius:50%;
+  border:2px solid var(--cyan);overflow:hidden;
+  box-shadow:var(--glow),inset 0 0 30px rgba(0,212,255,.08);
+  background:radial-gradient(circle,rgba(2,8,23,.95),#000);
+  pointer-events:none}
+.mm-sweep{position:absolute;top:50%;left:50%;
+  width:260%;height:260%;
+  background:conic-gradient(from 0deg,rgba(0,212,255,.18) 0deg,
+  transparent 60deg);
+  transform-origin:0 0;transform:translate(-50%,-50%);
+  animation:sweep 3s linear infinite}
+@keyframes sweep{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.mm-center{position:absolute;top:50%;left:50%;
+  width:10px;height:10px;border-radius:50%;
+  background:var(--green);transform:translate(-50%,-50%);
+  box-shadow:0 0 12px var(--green);z-index:5}
+#mm-canvas{position:absolute;inset:0;border-radius:50%;
+  z-index:3;opacity:.8}
+/* grid lines */
+#minimap::before,#minimap::after{content:'';position:absolute;
+  top:50%;left:50%;background:rgba(0,212,255,.12);z-index:2}
+#minimap::before{width:100%;height:1px;transform:translate(-50%,-50%)}
+#minimap::after{width:1px;height:100%;transform:translate(-50%,-50%)}
+
+/* ─── TOAST POPUP ────────────────────────────────────────────── */
+#toast{position:fixed;top:90px;left:50%;transform:translateX(-50%);
+  background:var(--panel);border:1px solid var(--border);
+  border-top:3px solid var(--cyan);border-radius:12px;
+  padding:18px 24px;min-width:240px;max-width:380px;text-align:center;
+  z-index:500;display:none;backdrop-filter:blur(20px)}
+#toast.show{display:block;animation:toastin .3s ease}
+@keyframes toastin{from{opacity:0;transform:translateX(-50%) translateY(-10px)}
+  to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.toast-title{font-size:11px;letter-spacing:2px;color:var(--cyan);
+  margin-bottom:8px;font-weight:700}
+.toast-msg{font-size:13px;color:rgba(255,255,255,.8)}
+.toast-close{margin-top:12px;padding:5px 18px;background:rgba(0,212,255,.12);
+  border:1px solid var(--border);border-radius:6px;
+  color:var(--cyan);font-size:10px;cursor:pointer;
+  letter-spacing:1px;pointer-events:auto}
+
+/* ─── MOBILE ─────────────────────────────────────────────────── */
+@media(max-width:600px){
+  .avatar-grid{grid-template-columns:repeat(2,1fr)}
+  .sp-title{font-size:20px}
+  .splash{padding:28px 20px}
+  .hud-tr{display:none}
+  #minimap{width:90px;height:90px;bottom:100px}
+  .hud-avatar{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="load-logo">🌐</div>
+  <div class="load-title">PANORAMAFLOW AI</div>
+  <div class="load-sub">LOADING VIRTUAL ENVIRONMENT</div>
+  <div class="load-bar"><div class="load-fill"></div></div>
+</div>
+
+<!-- WEBGL CANVAS -->
+<canvas id="canvas"></canvas>
+
+<!-- SCENE TRANSITION OVERLAY -->
+<div id="transition"></div>
+
+<!-- ══════ AVATAR SELECTION SCREEN ══════ -->
+<div id="avatar-screen" class="hidden">
+  <div class="splash">
+    <div class="sp-logo" id="sp-logo">🏨</div>
+    <div class="sp-title" id="sp-title">LUXURY HOTEL TOUR</div>
+    <div class="sp-sub" id="sp-sub">10 ROOMS · WEBXR · GAMING EXPERIENCE</div>
+
+    <div class="sp-label">SELECT YOUR AVATAR</div>
+    <div class="avatar-grid">
+      <div class="av sel" onclick="pickAvatar(this,'robot')">
+        <div class="sel-badge"></div>
+        <div class="av-icon">🤖</div>
+        <div class="av-name">ROBOT</div>
+        <div class="av-role">Sci-Fi Explorer</div>
+      </div>
+      <div class="av" onclick="pickAvatar(this,'astronaut')">
+        <div class="sel-badge"></div>
+        <div class="av-icon">👨‍🚀</div>
+        <div class="av-name">ASTRONAUT</div>
+        <div class="av-role">Space Pioneer</div>
+      </div>
+      <div class="av" onclick="pickAvatar(this,'ninja')">
+        <div class="sel-badge"></div>
+        <div class="av-icon">🥷</div>
+        <div class="av-name">NINJA</div>
+        <div class="av-role">Shadow Walker</div>
+      </div>
+      <div class="av" onclick="pickAvatar(this,'explorer')">
+        <div class="sel-badge"></div>
+        <div class="av-icon">🧭</div>
+        <div class="av-name">EXPLORER</div>
+        <div class="av-role">Adventure Seeker</div>
+      </div>
+    </div>
+
+    <div class="ctrl-hint">
+      <div class="ctrl-pill"><span>🖱 DRAG</span> Look Around</div>
+      <div class="ctrl-pill"><span>↑↓</span> Next / Prev Room</div>
+      <div class="ctrl-pill"><span>←→</span> Next / Prev Room</div>
+      <div class="ctrl-pill"><span>CLICK ▲</span> Enter Room</div>
+    </div>
+
+    <button class="enter-btn" onclick="startTour()">▶ &nbsp; ENTER EXPERIENCE</button>
+  </div>
+</div>
+
+<!-- ══════ HUD ══════ -->
+<div id="hud">
+  <!-- Top-Left -->
+  <div class="hud-tl">
+    <div class="hud-brand">● PANORAMAFLOW AI  |  LIVE</div>
+    <div class="hud-room">
+      <div class="hud-room-icon" id="hud-icon">🏨</div>
+      <div>
+        <div class="hud-room-name" id="hud-name">Grand Lobby</div>
+        <div class="hud-room-sub">ROOM <span id="hud-num">1</span> / <span id="hud-total">10</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top-Right Console -->
+  <div class="hud-tr">
+    SYS &nbsp;&nbsp;&nbsp; <span class="hud-tr-val">WEBGL_ACTIVE</span><br>
+    AVATAR &nbsp; <span class="hud-tr-val" id="hud-av-name">ROBOT</span><br>
+    ROOM &nbsp;&nbsp; <span class="hud-tr-val" id="hud-rm">1/10</span><br>
+    VIEW &nbsp;&nbsp; <span class="hud-tr-val" id="hud-deg">000°</span>
+  </div>
+
+  <!-- Center crosshair -->
+  <div class="xhair">
+    <div class="xhair-h"></div>
+    <div class="xhair-v"></div>
+    <div class="xhair-ring"></div>
+    <div class="xhair-dot"></div>
+  </div>
+
+  <!-- Left: avatar badge -->
+  <div class="hud-avatar">
+    <div class="av-badge-icon" id="hud-av-icon">🤖</div>
+    <div class="av-badge-name" id="hud-av-label">ROBOT</div>
+  </div>
+
+  <!-- Bottom bar -->
+  <div class="hud-bot">
+    <div class="room-dots" id="room-dots"></div>
+    <div class="hud-btns">
+      <button class="hbtn" onclick="togglePanel()">☰ ROOMS</button>
+      <button class="hbtn" onclick="prevRoom()">◀ PREV</button>
+      <button class="hbtn" onclick="nextRoom()">NEXT ▶</button>
+      <button class="hbtn" onclick="toggleAutoSpin()">⟳ AUTO</button>
+      <button class="hbtn" onclick="toggleFullscreen()">⛶ FULL</button>
+      <button class="hbtn" onclick="exitTour()">✕ EXIT</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ NAVIGATION ARROWS ══════ -->
+<div id="nav-arrows" style="display:none">
+  <!-- Forward arrow -->
+  <div class="nav-arrow" id="arr-forward" onclick="nextRoom()" title="Enter Next Room">
+    <div class="arr-body">▲</div>
+    <div class="arr-label" id="arr-fwd-label">ENTER</div>
+  </div>
+  <!-- Back arrow -->
+  <div class="nav-arrow" id="arr-back" onclick="prevRoom()" title="Go Back">
+    <div class="arr-body" style="transform:rotate(180deg)">▲</div>
+    <div class="arr-label" id="arr-bk-label">BACK</div>
+  </div>
+  <!-- Left -->
+  <div class="nav-arrow" id="arr-left" onclick="prevRoom()">
+    <div class="arr-body" style="transform:rotate(-90deg)">▲</div>
+    <div class="arr-label">PREV</div>
+  </div>
+  <!-- Right -->
+  <div class="nav-arrow" id="arr-right" onclick="nextRoom()">
+    <div class="arr-body" style="transform:rotate(90deg)">▲</div>
+    <div class="arr-label">NEXT</div>
+  </div>
+</div>
+
+<!-- ══════ ROOMS SIDE PANEL ══════ -->
+<div id="rooms-panel">
+  <div class="rp-head">
+    <h3>ALL ROOMS</h3>
+    <button class="rp-close" onclick="togglePanel()">✕</button>
+  </div>
+  <div class="rp-list" id="rp-list"></div>
+</div>
+
+<!-- ══════ MINIMAP ══════ -->
+<div id="minimap" style="display:none">
+  <div class="mm-sweep"></div>
+  <div class="mm-center"></div>
+  <canvas id="mm-canvas" width="130" height="130"></canvas>
+</div>
+
+<!-- ══════ TOAST ══════ -->
+<div id="toast">
+  <div class="toast-title" id="toast-title">INFO</div>
+  <div class="toast-msg" id="toast-msg"></div>
+  <button class="toast-close" onclick="hideToast()">CLOSE</button>
+</div>
+
+<!-- ══════ THREE.JS ══════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   ROOM DATA  –  10 connected hotel rooms
+═══════════════════════════════════════════════════════════ */
+const ROOMS = [
+  { id:'r01', name:'Grand Lobby',              icon:'🏨', img:'samples/rooms/room01_lobby.jpg' },
+  { id:'r02', name:'East Wing Corridor',       icon:'🚶', img:'samples/rooms/room02_corridor.jpg' },
+  { id:'r03', name:'Conference Room',          icon:'💼', img:'samples/rooms/room03_conference.jpg' },
+  { id:'r04', name:'Fine Dining Restaurant',   icon:'🍽', img:'samples/rooms/room04_restaurant.jpg' },
+  { id:'r05', name:'Indoor Swimming Pool',     icon:'🏊', img:'samples/rooms/room05_pool.jpg' },
+  { id:'r06', name:'Gym & Fitness Center',     icon:'💪', img:'samples/rooms/room06_gym.jpg' },
+  { id:'r07', name:'Rooftop Bar & Terrace',    icon:'🌃', img:'samples/rooms/room07_rooftop.jpg' },
+  { id:'r08', name:'Presidential Suite—Living',icon:'🛋', img:'samples/rooms/room08_suite_living.jpg' },
+  { id:'r09', name:'Presidential Suite—Bed',  icon:'🛏', img:'samples/rooms/room09_suite_bedroom.jpg' },
+  { id:'r10', name:'Spa & Wellness Center',    icon:'🧘', img:'samples/rooms/room10_spa.jpg' },
+];
+
+const AVATARS = {
+  robot:    { icon:'🤖', label:'ROBOT' },
+  astronaut:{ icon:'👨‍🚀', label:'ASTRONAUT' },
+  ninja:    { icon:'🥷', label:'NINJA' },
+  explorer: { icon:'🧭', label:'EXPLORER' },
+};
+
+/* ═══════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════ */
+let currentRoom  = 0;
+let avatar       = 'robot';
+let inTour       = false;
+let autoSpin     = false;
+let spinBtn      = null;
+let visited      = new Set();
+
+/* Three.js objects */
+let renderer, scene3d, camera, sphere, material;
+
+/* Drag / orbit state */
+let isDragging   = false;
+let lastX, lastY;
+let lon = 0, lat = 0;       // current view direction (degrees)
+let targetLon = 0;
+
+/* Texture cache */
+const texCache = {};
+const loader   = new THREE.TextureLoader();
+
+/* ═══════════════════════════════════════════════════════════
+   THREE.JS INIT
+═══════════════════════════════════════════════════════════ */
+function initThree() {
+  const canvas = document.getElementById('canvas');
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  scene3d = new THREE.Scene();
+
+  /* Camera at origin — we look INSIDE the sphere */
+  camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 0, 0);
+
+  /* Sphere — inverted so texture shows on inner face */
+  const geo = new THREE.SphereGeometry(500, 64, 32);
+  geo.scale(-1, 1, 1);   // flip normals inward
+  material = new THREE.MeshBasicMaterial({ color: 0x111827 });
+  sphere = new THREE.Mesh(geo, material);
+  scene3d.add(sphere);
+
+  /* Resize */
+  window.addEventListener('resize', () => {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+  });
+
+  /* Render loop */
+  (function loop() {
+    requestAnimationFrame(loop);
+
+    /* Auto-spin */
+    if (autoSpin && !isDragging) {
+      lon += 0.04;
+      targetLon += 0.04;
+    }
+
+    /* Smooth damping toward target */
+    lon += (targetLon - lon) * 0.08;
+
+    /* Clamp lat so user can't go fully upside-down */
+    lat = Math.max(-75, Math.min(75, lat));
+
+    /* Convert to radians & update camera target */
+    const phi   = THREE.MathUtils.degToRad(90 - lat);
+    const theta = THREE.MathUtils.degToRad(lon);
+    camera.lookAt(
+      Math.sin(phi) * Math.cos(theta),
+      Math.cos(phi),
+      Math.sin(phi) * Math.sin(theta)
+    );
+
+    /* HUD compass degrees */
+    const deg = ((lon % 360) + 360) % 360;
+    const dEl = document.getElementById('hud-deg');
+    if (dEl) dEl.textContent = deg.toFixed(0).padStart(3,'0') + '°';
+
+    renderer.render(scene3d, camera);
+  })();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TEXTURE LOADING
+═══════════════════════════════════════════════════════════ */
+function loadRoomTexture(idx, callback) {
+  const url = ROOMS[idx].img;
+  if (texCache[url]) { callback(texCache[url]); return; }
+  loader.load(url,
+    (tex) => { texCache[url] = tex; callback(tex); },
+    undefined,
+    (err) => { console.warn('Texture load failed:', url, err); callback(null); }
+  );
+}
+
+/* Preload adjacent rooms */
+function preloadAdjacent(idx) {
+  const toLoad = [idx - 1, idx + 1].filter(i => i >= 0 && i < ROOMS.length);
+  toLoad.forEach(i => loadRoomTexture(i, () => {}));
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ROOM SWITCHING  (with gaming-style transition)
+═══════════════════════════════════════════════════════════ */
+function goToRoom(idx) {
+  if (idx < 0 || idx >= ROOMS.length) return;
+  if (idx === currentRoom && inTour) return;
+
+  const overlay = document.getElementById('transition');
+
+  /* Fade to black */
+  overlay.classList.add('active');
+  setTimeout(() => {
+    currentRoom = idx;
+    visited.add(idx);
+    loadRoomTexture(idx, (tex) => {
+      if (tex) {
+        material.map = tex;
+        material.color.set(0xffffff);
+        material.needsUpdate = true;
+      }
+      /* Fade back in */
+      setTimeout(() => overlay.classList.remove('active'), 30);
+      updateHUD();
+      updateArrows();
+      updateDots();
+      updateMinimap();
+      drawRoomsList();
+      preloadAdjacent(idx);
+    });
+  }, 360);
+}
+
+function nextRoom() { goToRoom(currentRoom + 1); }
+function prevRoom() { goToRoom(currentRoom - 1); }
+
+/* ═══════════════════════════════════════════════════════════
+   HUD UPDATES
+═══════════════════════════════════════════════════════════ */
+function updateHUD() {
+  const r = ROOMS[currentRoom];
+  document.getElementById('hud-icon').textContent = r.icon;
+  document.getElementById('hud-name').textContent = r.name;
+  document.getElementById('hud-num').textContent  = currentRoom + 1;
+  document.getElementById('hud-total').textContent = ROOMS.length;
+  document.getElementById('hud-rm').textContent   = (currentRoom+1)+'/'+ROOMS.length;
+}
+
+function updateArrows() {
+  const fa = document.getElementById('arr-forward');
+  const ba = document.getElementById('arr-back');
+  const la = document.getElementById('arr-left');
+  const ra = document.getElementById('arr-right');
+  const hasPrev = currentRoom > 0;
+  const hasNext = currentRoom < ROOMS.length - 1;
+
+  fa.style.display = hasNext ? 'flex' : 'none';
+  ba.style.display = hasPrev ? 'flex' : 'none';
+  la.style.display = hasPrev ? 'flex' : 'none';
+  ra.style.display = hasNext ? 'flex' : 'none';
+
+  if (hasNext) {
+    document.getElementById('arr-fwd-label').textContent = ROOMS[currentRoom+1].name.toUpperCase().slice(0,10);
+  }
+  if (hasPrev) {
+    document.getElementById('arr-bk-label').textContent = ROOMS[currentRoom-1].name.toUpperCase().slice(0,10);
+  }
+}
+
+function updateDots() {
+  const c = document.getElementById('room-dots');
+  c.innerHTML = '';
+  ROOMS.forEach((r, i) => {
+    const d = document.createElement('div');
+    d.className = 'rdot' +
+      (i === currentRoom ? ' cur' : '') +
+      (visited.has(i) && i !== currentRoom ? ' vis' : '');
+    d.title = r.name;
+    d.onclick = () => goToRoom(i);
+    c.appendChild(d);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ROOMS SIDE PANEL
+═══════════════════════════════════════════════════════════ */
+function drawRoomsList() {
+  const c = document.getElementById('rp-list');
+  c.innerHTML = '';
+  ROOMS.forEach((r, i) => {
+    const item = document.createElement('div');
+    item.className = 'rp-item' + (i === currentRoom ? ' cur' : '');
+    item.innerHTML =
+      `<img class="rp-thumb" src="${r.img}" alt="${r.name}">` +
+      `<div>
+         <div class="rp-info-name">${r.icon} ${r.name}</div>
+         <div class="rp-info-num">ROOM ${i+1} OF ${ROOMS.length}${visited.has(i) ? ' · VISITED' : ''}</div>
+       </div>`;
+    item.onclick = () => { goToRoom(i); togglePanel(); };
+    c.appendChild(item);
+  });
+}
+
+function togglePanel() {
+  document.getElementById('rooms-panel').classList.toggle('open');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MINIMAP
+═══════════════════════════════════════════════════════════ */
+function updateMinimap() {
+  const canvas = document.getElementById('mm-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W/2, cy = H/2, R = W/2 - 10;
+  ctx.clearRect(0,0,W,H);
+
+  /* Ring circles */
+  ctx.strokeStyle = 'rgba(0,212,255,.12)';
+  ctx.lineWidth = 1;
+  [R*0.33, R*0.66, R].forEach(r => {
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
+  });
+
+  /* Plot rooms as dots on a circle */
+  const n = ROOMS.length;
+  ROOMS.forEach((rm, i) => {
+    const angle = (i/n)*Math.PI*2 - Math.PI/2;
+    const dist  = R * 0.72;
+    const sx = cx + Math.cos(angle)*dist;
+    const sy = cy + Math.sin(angle)*dist;
+
+    const isVis  = visited.has(i);
+    const isCur  = i === currentRoom;
+
+    ctx.beginPath();
+    ctx.arc(sx, sy, isCur ? 6 : 3.5, 0, Math.PI*2);
+    ctx.fillStyle = isCur ? '#00ff88' : isVis ? 'rgba(0,212,255,.7)' : 'rgba(0,212,255,.25)';
+    ctx.fill();
+
+    if (isCur) {
+      ctx.beginPath(); ctx.arc(sx,sy,10,0,Math.PI*2);
+      ctx.strokeStyle = 'rgba(0,255,136,.35)'; ctx.lineWidth=2; ctx.stroke();
+    }
+
+    /* Connect adjacent rooms */
+    if (i < n-1) {
+      const next = i+1;
+      const na = (next/n)*Math.PI*2 - Math.PI/2;
+      const nx = cx + Math.cos(na)*dist;
+      const ny = cy + Math.sin(na)*dist;
+      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(nx,ny);
+      ctx.strokeStyle = 'rgba(0,212,255,.15)'; ctx.lineWidth=1; ctx.stroke();
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DRAG  (mouse + touch)
+═══════════════════════════════════════════════════════════ */
+function setupDrag() {
+  const c = document.getElementById('canvas');
+
+  /* MOUSE */
+  c.addEventListener('mousedown', e => {
+    isDragging = true; lastX = e.clientX; lastY = e.clientY;
+    c.classList.add('grabbing');
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    targetLon -= dx * 0.18;
+    lat += dy * 0.18;
+  });
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+    document.getElementById('canvas').classList.remove('grabbing');
+  });
+
+  /* TOUCH */
+  c.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      isDragging = true;
+      lastX = e.touches[0].clientX;
+      lastY = e.touches[0].clientY;
+    }
+  }, { passive:true });
+  c.addEventListener('touchmove', e => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - lastX;
+    const dy = e.touches[0].clientY - lastY;
+    lastX = e.touches[0].clientX;
+    lastY = e.touches[0].clientY;
+    targetLon -= dx * 0.18;
+    lat += dy * 0.18;
+  }, { passive:true });
+  c.addEventListener('touchend', () => { isDragging = false; });
+
+  /* WHEEL ZOOM (simulated via FOV) */
+  c.addEventListener('wheel', e => {
+    camera.fov = Math.max(40, Math.min(110, camera.fov + e.deltaY * 0.04));
+    camera.updateProjectionMatrix();
+  }, { passive:true });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   KEYBOARD NAVIGATION
+═══════════════════════════════════════════════════════════ */
+document.addEventListener('keydown', e => {
+  if (!inTour) return;
+  switch(e.key) {
+    case 'ArrowRight': case 'd': case 'D': nextRoom(); break;
+    case 'ArrowLeft':  case 'a': case 'A': prevRoom(); break;
+    case 'ArrowUp':    case 'w': case 'W': nextRoom(); break;
+    case 'ArrowDown':  case 's': case 'S': prevRoom(); break;
+    case 'f': case 'F': toggleFullscreen(); break;
+    case 'Escape': togglePanel(); break;
+    case 'm': case 'M': togglePanel(); break;
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   AVATAR PICK
+═══════════════════════════════════════════════════════════ */
+function pickAvatar(el, name) {
+  document.querySelectorAll('.av').forEach(a => a.classList.remove('sel'));
+  el.classList.add('sel');
+  avatar = name;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   START / EXIT TOUR
+═══════════════════════════════════════════════════════════ */
+function startTour() {
+  document.getElementById('avatar-screen').classList.add('hidden');
+  document.getElementById('hud').classList.add('visible');
+  document.getElementById('nav-arrows').style.display = 'block';
+  document.getElementById('minimap').style.display = 'block';
+  spinBtn = document.querySelector('.hbtn[onclick="toggleAutoSpin()"]');
+
+  /* Avatar HUD */
+  const av = AVATARS[avatar] || AVATARS.robot;
+  document.getElementById('hud-av-name').textContent  = av.label;
+  document.getElementById('hud-av-icon').textContent  = av.icon;
+  document.getElementById('hud-av-label').textContent = av.label;
+
+  inTour = true;
+  visited.add(0);
+  goToRoom(0);
+}
+
+function exitTour() {
+  inTour = false;
+  document.getElementById('hud').classList.remove('visible');
+  document.getElementById('nav-arrows').style.display = 'none';
+  document.getElementById('minimap').style.display = 'none';
+  document.getElementById('rooms-panel').classList.remove('open');
+  document.getElementById('avatar-screen').classList.remove('hidden');
+  /* clear sphere */
+  material.map = null;
+  material.color.set(0x111827);
+  material.needsUpdate = true;
+  lon = 0; lat = 0; targetLon = 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UTILITY CONTROLS
+═══════════════════════════════════════════════════════════ */
+function toggleAutoSpin() {
+  autoSpin = !autoSpin;
+  if (spinBtn) spinBtn.classList.toggle('active', autoSpin);
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(()=>{});
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+function showToast(title, msg, duration=5000) {
+  document.getElementById('toast-title').textContent = title;
+  document.getElementById('toast-msg').textContent   = msg;
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => t.classList.remove('show'), duration);
+}
+function hideToast() {
+  document.getElementById('toast').classList.remove('show');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INIT SEQUENCE
+═══════════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', () => {
+  initThree();
+  setupDrag();
+  updateMinimap();
+
+  /* Hide loading screen after ~2 s */
+  setTimeout(() => {
+    const ld = document.getElementById('loading');
+    ld.classList.add('fade');
+    setTimeout(() => { ld.style.display = 'none';
+      document.getElementById('avatar-screen').classList.remove('hidden');
+    }, 600);
+  }, 2000);
+
+  /* Preload first 3 rooms immediately */
+  [0,1,2].forEach(i => loadRoomTexture(i, ()=>{}));
+});
+</script>
+</body>
+</html>

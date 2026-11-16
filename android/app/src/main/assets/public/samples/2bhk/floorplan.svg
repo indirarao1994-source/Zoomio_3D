@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="560" viewBox="0 0 800 560">
+  <rect width="800" height="560" fill="#f8fafc"/>
+
+  <!-- structural walls -->
+  <g stroke="#334155" stroke-width="10" fill="#eef2f7">
+    <rect x="40" y="40" width="720" height="480"/>
+  </g>
+  <g stroke="#475569" stroke-width="7" fill="#eef2f7">
+    <rect x="40"  y="40"  width="290" height="210"/>  <!-- master bedroom -->
+    <rect x="330" y="40"  width="230" height="210"/>  <!-- bedroom 2 -->
+    <rect x="560" y="40"  width="200" height="210"/>  <!-- bath + utility -->
+    <rect x="40"  y="250" width="480" height="270"/>  <!-- hall / living-dining -->
+    <rect x="520" y="250" width="240" height="270"/>  <!-- kitchen -->
+  </g>
+
+  <!-- door openings punched through the walls (white gaps) -->
+  <g stroke="#eef2f7" stroke-width="9" stroke-linecap="butt">
+    <line x1="170" y1="250" x2="230" y2="250"/>  <!-- hall -> master -->
+    <line x1="415" y1="250" x2="475" y2="250"/>  <!-- hall -> bedroom 2 -->
+    <line x1="520" y1="350" x2="520" y2="410"/>  <!-- hall -> kitchen -->
+    <line x1="640" y1="250" x2="690" y2="250"/>  <!-- kitchen -> utility -->
+  </g>
+  <!-- door swing arcs -->
+  <g stroke="#94a3b8" stroke-width="2" fill="none">
+    <path d="M170 250 A 60 60 0 0 1 170 190"/>
+    <path d="M415 250 A 60 60 0 0 1 415 190"/>
+    <path d="M520 350 A 60 60 0 0 0 580 350"/>
+  </g>
+
+  <!-- main entrance -->
+  <g>
+    <line x1="205" y1="520" x2="285" y2="520" stroke="#eef2f7" stroke-width="12"/>
+    <path d="M205 520 A 80 80 0 0 1 205 440" stroke="#0d9488" stroke-width="2.5" fill="none"/>
+    <text x="245" y="547" font-family="Inter, sans-serif" font-size="14" font-weight="700" fill="#0d9488" text-anchor="middle">ENTRANCE</text>
+  </g>
+
+  <!-- room labels -->
+  <g font-family="Inter, sans-serif" text-anchor="middle">
+    <text x="185" y="138" font-size="19" font-weight="700" fill="#1e293b">MASTER BEDROOM</text>
+    <text x="185" y="162" font-size="13" fill="#64748b">12'0" x 11'6"</text>
+
+    <text x="445" y="138" font-size="19" font-weight="700" fill="#1e293b">BEDROOM 2</text>
+    <text x="445" y="162" font-size="13" fill="#64748b">10'6" x 11'6"</text>
+
+    <text x="660" y="132" font-size="15" font-weight="600" fill="#64748b">BATH</text>
+    <text x="660" y="154" font-size="12" fill="#94a3b8">+ UTILITY</text>
+
+    <text x="280" y="378" font-size="21" font-weight="700" fill="#1e293b">HALL / LIVING + DINING</text>
+    <text x="280" y="404" font-size="13" fill="#64748b">18'0" x 12'6"</text>
+
+    <text x="640" y="378" font-size="19" font-weight="700" fill="#1e293b">KITCHEN</text>
+    <text x="640" y="402" font-size="13" fill="#64748b">9'6" x 8'0"</text>
+  </g>
+
+  <!-- title block + north arrow -->
+  <text x="40" y="26" font-family="Inter, sans-serif" font-size="15" font-weight="700" fill="#334155">2 BHK · 1,050 sq ft (carpet)</text>
+  <g transform="translate(742,505)">
+    <circle r="17" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+    <path d="M0 -11 L5 6 L0 2 L-5 6 Z" fill="#0d9488"/>
+    <text y="-20" font-family="Inter, sans-serif" font-size="11" font-weight="700" fill="#64748b" text-anchor="middle">N</text>
+  </g>
+</svg>

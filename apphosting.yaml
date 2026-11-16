@@ -1,0 +1,37 @@
+# Firebase App Hosting configuration.
+#
+# App Hosting builds from a connected GitHub repo and runs the result on Cloud
+# Run, so a full Express server works here — unlike classic Firebase Hosting,
+# which only serves static files.
+#
+# IMPORTANT — ephemeral storage:
+# Cloud Run containers have a writable filesystem, but it is wiped whenever the
+# instance restarts or scales. This app writes published tours, uploads and its
+# JSON database to disk, so anything created after deployment survives only
+# until the container recycles. The sample tours baked into the image always
+# come back. For durable multi-tenant storage, move server/published to a Cloud
+# Storage bucket and server/data to Firestore.
+#
+# minInstances: 1 keeps one container warm, which both avoids a cold start in
+# front of an audience and stops demo data disappearing mid-presentation.
+
+runConfig:
+  cpu: 1
+  memoryMiB: 1024
+  minInstances: 1
+  maxInstances: 3
+  concurrency: 40
+
+env:
+  - variable: NODE_ENV
+    value: production
+    availability:
+      - RUNTIME
+
+  # AI authoring. Store the real key as a secret, never inline here:
+  #   firebase apphosting:secrets:set ANTHROPIC_API_KEY
+  # then uncomment:
+  # - variable: ANTHROPIC_API_KEY
+  #   secret: ANTHROPIC_API_KEY
+  #   availability:
+  #     - RUNTIME

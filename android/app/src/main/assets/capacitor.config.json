@@ -1,0 +1,11 @@
+{
+	"appId": "in.zoomio.studio",
+	"appName": "Zoomio",
+	"webDir": "dist",
+	"android": {
+		"allowMixedContent": false
+	},
+	"server": {
+		"androidScheme": "https"
+	}
+}

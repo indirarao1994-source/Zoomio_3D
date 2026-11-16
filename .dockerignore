@@ -1,0 +1,25 @@
+# Rebuilt inside the image
+node_modules
+dist
+server/player-dist
+public/ffmpeg
+
+# Never bake secrets into an image
+.env
+.env.local
+
+# Local-only
+.git
+.gemini
+.agents
+*.zip
+*.log
+server/prisma/dev.db
+server/public/uploads/*
+server/data/*.tmp
+server/data/*.backup
+
+# NOTE: server/data and server/published are deliberately NOT ignored.
+# Baking them in means the deployed demo already contains the sample tours and
+# the owner account, so an investor link works the moment it goes live instead
+# of showing an empty studio and a first-run setup screen.
